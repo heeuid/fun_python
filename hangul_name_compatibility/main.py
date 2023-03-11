@@ -7,7 +7,7 @@ except:
     exit(1)
 
 strok_jamo = [
-        { # [0]: non-traiditonal (선분수)
+        { # [0]: line_num_method (선분수)
             'ㄱ': 2, 'ㄴ': 2, 'ㄷ': 3, 'ㄹ': 5,
             'ㅁ': 4, 'ㅂ': 4, 'ㅅ': 2, 'ㅇ': 1,
             'ㅈ': 3, 'ㅊ': 4, 'ㅋ': 3, 'ㅌ': 4,
@@ -20,7 +20,7 @@ strok_jamo = [
             'ㅢ': 2, 'ㅚ': 3, 'ㅟ': 3, 'ㅙ': 5,
             'ㅞ': 5
         },
-        { # [1]: traditional (획수)
+        { # [1]: strok_method (획수)
             'ㄱ': 1, 'ㄴ': 1, 'ㅇ': 1, 'ㄷ': 2,
             'ㅅ': 2, 'ㅈ': 2, 'ㅋ': 2, 'ㄲ': 2,
             'ㄹ': 3, 'ㅁ': 3, 'ㅊ': 3, 'ㅌ': 3,
@@ -36,13 +36,14 @@ strok_jamo = [
 ]
 
 # static
-def count_strokes(korean_ch, tradition):
+def count_strokes(korean_ch: str, strok_method: bool) -> int:
+    """count strokes or lines for a character"""
     strokes = 0
-    tradition = 1 if tradition else 0
+    _strok_method = 1 if strok_method else 0
 
     chs = split_syllable_char(korean_ch)
     for ch in chs:
-        strokes += strok_jamo[tradition][ch]
+        strokes += strok_jamo[_strok_method][ch]
 
 #    print("{}: {}".format(korean_ch, chs))
 
@@ -50,57 +51,82 @@ def count_strokes(korean_ch, tradition):
 
 
 # static
-def name_to_strok_list(name: str, tradition):
-    strok = []
+def name_to_strokes(name: str, strok_method: bool) -> list[int]:
+    """get strokes from a name"""
+    strokes = []
     for w in name:
-        strok.append(count_strokes(w, tradition))
-    return strok
+        strokes.append(count_strokes(w, strok_method))
+    return strokes
 
 
 # static
-def merge_strok_lists(strok1: list, strok2: list):
-    if len(strok1) > len(strok2):
-        short_len = len(strok2)
-        long_strok = strok1
+def merge_lists(list1: list[str], list2: list[str]) -> list[str]:
+    """merge 2 names: 이철수, 김영희 -> 이김철영수희"""
+    if len(list1) > len(list2):
+        short_len = len(list2)
+        long_list = list1
     else:
-        short_len = len(strok1)
-        long_strok = strok2
+        short_len = len(list1)
+        long_list = list2
     
-    tot_strok = []
-    for (n1, n2) in zip(strok1, strok2):
-        tot_strok.append(n1)
-        tot_strok.append(n2)
+    tot_list = []
+    for (n1, n2) in zip(list1, list2):
+        tot_list.append(n1)
+        tot_list.append(n2)
 
-    for n in long_strok[short_len:]:
-        tot_strok.append(n)
-    return tot_strok
+    for n in long_list[short_len:]:
+        tot_list.append(n)
+    return tot_list
 
 
 #static
-def print_strok(strok: list, tot_cnt: int):
-    cnt = len(strok) 
+def print_strokes(strok_list: list, tot_cnt: int):
+    """
+    for progress
+    1 2 3 4 5 6
+     1 2 3 4 5
+      1 2 3 4
+       1 2 3
+        1 2
+    """
+    cnt = len(strok_list) 
     spaces = " " * (tot_cnt - cnt)
+
     print(spaces, end='')
-    for n in strok[:-1]:
+    for n in strok_list[:-1]:
         print(f"{n}", end=' ')
-    print(strok[-1])
+    print(strok_list[-1])
 
 
-def calculate_love(name1: str, name2: str, tradition=True):
-    print("이름 궁합 [{}]: {}, {}".format("획수" if tradition else "선분수", name1, name2))
+def calculate_love(name1: str, name2: str, strok_method) -> int:
+    """calculate 이름 궁합"""
+    # print title
+    print("이름 궁합 [{}]: {}, {}".format("획수" if strok_method else "선분수", name1, name2))
 
-    strok1 = name_to_strok_list(name1, tradition)
-    strok2 = name_to_strok_list(name2, tradition)
-    strokes = merge_strok_lists(strok1, strok2)
+    # 이철수, 김영희 -> 이김철영수희
+    name = ''.join(merge_lists(list(name1), list(name2)))
 
+    # 이김철영수희 -> [num1, num2, num3, num4, num5, num6]
+    strokes = name_to_strokes(name, strok_method)
+    
+    # len(num1~num6)
     first_len = len(strokes)
 
+    # current strokes, next strokes
+    # (res[current], res[next], next = 1 - current)
+    # next strokes: calculated once from current strokes
     res = [strokes, []]
     current = 0
     next = 1 - current
 
+    print('\n' + name)
+    
+    # calculate until 2 strokes left
     while len(res[current]) > 2:
-        print_strok(res[current], first_len)
+        # print a progress (print current strokes)
+        print_strokes(res[current], first_len)
+
+        # calculate next strokes
         for (n1, n2) in zip(res[current], res[current][1:]):
             res[next].append((n1 + n2) % 10)
 
@@ -109,20 +135,42 @@ def calculate_love(name1: str, name2: str, tradition=True):
 
         res[next].clear()
 
-    print_strok(res[current], first_len)
-    ans = res[current][0] * 10 + res[current][1]
+    # print a progress (print current strokes)
+    print_strokes(res[current], first_len)
 
-    return ans
+    return res[current][0] * 10 + res[current][1]
 
 
-me = input("본인 이름: ")
-lo = input("애인 이름: ")
+#static
+def is_korean(name: str) -> bool:
+    for character in name:
+        if ord('가') <= ord(character) <= ord('힣'):
+            return True
+    return False
 
-love = calculate_love(me, lo, tradition=False)
-print(love)
-#love = calculate_love(lo, me, tradition=False)
-#print(love)
-#love = calculate_love(me, lo, tradition=True)
-#print(love)
-#love = calculate_love(lo, me, tradition=True)
-#print(love)
+
+#main
+def main():
+    me = input("본인 이름: ")
+
+    if not is_korean(me):
+        print("Please input korean name~")
+        exit(1)
+
+    lo = input("애인 이름: ")
+
+    if not is_korean(lo):
+        print("Please input korean name~")
+        exit(1)
+
+    strok_method = int(input("계산 방법은? (0:선분수, 1:획수) "))
+
+    print()
+
+    love = calculate_love(me, lo, True if strok_method == 1 else False)
+
+    print("\n이름 궁합: {}%\n".format(love))
+
+
+#call main
+main()
